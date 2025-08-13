@@ -76,7 +76,10 @@ export async function createFeedback(params: CreateFeedbackParams) {
 // }
 
 
-try {
+  console.log('=== CREATE FEEDBACK DEBUG ===');
+  console.log('Params received:', { interviewId, userId, transcript: transcript.length, feedbackId });
+
+  try {
     const formattedTranscript = transcript
       .map(
         (sentence: { role: string; content: string }) =>
@@ -84,8 +87,11 @@ try {
       )
       .join("");
 
-    console.log('Formatted transcript:', formattedTranscript);
+    console.log('Formatted transcript length:', formattedTranscript.length);
+    console.log('Formatted transcript preview:', formattedTranscript.substring(0, 200) + '...');
 
+    console.log('Calling generateObject...');
+    
     const { object: { totalScore, categoryScores, strengths, areasForImprovement, finalAssessment } } = await generateObject({
       model: google("gemini-2.0-flash-001"),
       schema: feedbackSchema,
@@ -105,6 +111,8 @@ try {
         "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
     });
 
+    console.log('AI analysis complete:', { totalScore, strengthsCount: strengths.length, areasCount: areasForImprovement.length });
+
     // Create the feedback data object
     const feedbackData = {
       interviewId,
@@ -117,25 +125,35 @@ try {
       createdAt: new Date().toISOString(),
     };
 
-    let feedbackRef;
+    console.log('Feedback data prepared:', { ...feedbackData, finalAssessment: finalAssessment.substring(0, 50) + '...' });
+
+    let finalFeedbackId: string;
 
     if (feedbackId) {
-      // Update existing feedback
-      feedbackRef = db.collection("feedback").doc(feedbackId);
-      await feedbackRef.set(feedbackData);
+      // Update existing feedback document
+      console.log('Updating existing feedback with ID:', feedbackId);
+      await db.collection("feedback").doc(feedbackId).set(feedbackData);
+      finalFeedbackId = feedbackId;
+      console.log('Existing feedback updated successfully');
     } else {
-      // Create new feedback
-      feedbackRef = await db.collection('feedback').add(feedbackData);
+      // Create new feedback document
+      console.log('Creating new feedback document...');
+      const docRef = await db.collection('feedback').add(feedbackData);
+      finalFeedbackId = docRef.id;
+      console.log('New feedback created with ID:', finalFeedbackId);
     }
 
-    console.log('Feedback saved to Firestore:', feedbackRef.id);
-    return { success: true, feedbackId: feedbackRef.id };
+    console.log('Feedback operation completed successfully, returning:', { success: true, feedbackId: finalFeedbackId });
+    return { success: true, feedbackId: finalFeedbackId };
 
-  } catch (e) {
-    console.error("Error saving feedback:", e);
-    return { success: false, error: e };
+  } catch (e: any) {
+    console.error("=== ERROR IN CREATE FEEDBACK ===");
+    console.error("Error type:", e.constructor.name);
+    console.error("Error message:", e.message);
+    console.error("Error stack:", e.stack);
+    console.error("Full error object:", e);
+    return { success: false, error: e.message || 'Unknown error' };
   }
-
 }
 
 

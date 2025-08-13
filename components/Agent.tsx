@@ -85,24 +85,72 @@ const Agent = ({ userName, userId, type, interviewId, feedbackId, questions }: A
       setLastMessage(messages[messages.length - 1].content);
     }
  
- const handleGenerateFeedback = async(messages: SavedMessage[]) => {
-  console.log('Generate feedback here.', { messages, interviewId, userId, feedbackId });
+//  const handleGenerateFeedback = async(messages: SavedMessage[]) => {
+//   console.log('Generate feedback here.', { messages, interviewId, userId, feedbackId });
+  
+//   try {
+//     const { success, feedbackId: id } = await createFeedback({
+//       interviewId: interviewId!,
+//       userId: userId!,
+//       transcript: messages,
+//       feedbackId,
+//     });
+
+//     console.log('Feedback result:', { success, id });
+
+//     if(success && id) {
+//       router.push(`/interview/${interviewId}/feedback`)
+//     } else {
+//       console.log('Error saving feedback - success was false or no id returned');
+//       router.push('/')
+//     }
+//   } catch (error) {
+//     console.error('Error in handleGenerateFeedback:', error);
+//     router.push('/');
+//   }
+// }
+
+const handleGenerateFeedback = async(messages: SavedMessage[]) => {
+  console.log('=== FEEDBACK GENERATION DEBUG ===');
+  console.log('Messages length:', messages.length);
+  console.log('Messages content:', messages);
+  console.log('Interview ID:', interviewId);
+  console.log('User ID:', userId);
+  console.log('Feedback ID:', feedbackId);
+  
+  if (!interviewId || !userId) {
+    console.error('Missing required parameters:', { interviewId, userId });
+    router.push('/');
+    return;
+  }
+
+  if (messages.length === 0) {
+    console.error('No messages to process for feedback');
+    router.push('/');
+    return;
+  }
   
   try {
-    const { success, feedbackId: id } = await createFeedback({
+    console.log('Calling createFeedback...');
+    const result = await createFeedback({
       interviewId: interviewId!,
       userId: userId!,
       transcript: messages,
       feedbackId,
     });
 
-    console.log('Feedback result:', { success, id });
+    console.log('Feedback result:', result);
 
-    if(success && id) {
-      router.push(`/interview/${interviewId}/feedback`)
+    // Fix: Check for result.feedbackId instead of result.id
+    if (result.success && result.feedbackId) {
+      console.log('Success! Redirecting to feedback page with ID:', result.feedbackId);
+      router.push(`/interview/${interviewId}/feedback`);
     } else {
-      console.log('Error saving feedback - success was false or no id returned');
-      router.push('/')
+      console.error('Feedback creation failed:', result);
+      console.error('Success:', result.success);
+      console.error('FeedbackId:', result.feedbackId);
+      console.error('Error details:', result.error);
+      router.push('/');
     }
   } catch (error) {
     console.error('Error in handleGenerateFeedback:', error);
