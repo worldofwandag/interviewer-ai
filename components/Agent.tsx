@@ -26,10 +26,19 @@ const Agent = ({ userName, userId, type, interviewId, feedbackId, questions }: A
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
   const [messages, setMessages] = useState<SavedMessage[]>([]);
+  const [lastMessage, setLastMessage] = useState<string>("");
+
+  const latestMessage = messages[messages.length - 1]?.content;
+  const isCallInactiveOrFinished = callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED;
+
 
   useEffect(() => {
-    const onCallStart = () => setCallStatus(CallStatus.ACTIVE);
-    const onCallEnd = () => setCallStatus(CallStatus.FINISHED);
+    const onCallStart = () => {
+      setCallStatus(CallStatus.ACTIVE);
+    }
+    const onCallEnd = () => {
+      setCallStatus(CallStatus.FINISHED);
+    }
 
     const onMessage = (message: Message) => {
       if (message.type === "transcript" && message.transcriptType === "final") {
@@ -71,33 +80,38 @@ const Agent = ({ userName, userId, type, interviewId, feedbackId, questions }: A
   }, []);
 
 
-
- 
-
-
-
-  const handleGenerateFeedback = async(messages:
-    SavedMessage[]) => {
-      console.log('Generate feedback here.')
-
-      // TODO: Create a server action that generates feedback
-       const { success, feedbackId: id } = await createFeedback({
-        interviewId: interviewId!,
-        userId: userId!,
-        transcript: messages,
-        feedbackId,
-      });
-
-      if(success && id) {
-        router.push(`/interview/${interviewId}/feedback`)
-      } else {
-        console.log('Error saving feedback');
-        router.push('/')
-      }
+ useEffect(() => {
+    if (messages.length > 0) {
+      setLastMessage(messages[messages.length - 1].content);
     }
+ 
+ const handleGenerateFeedback = async(messages: SavedMessage[]) => {
+  console.log('Generate feedback here.', { messages, interviewId, userId, feedbackId });
   
+  try {
+    const { success, feedbackId: id } = await createFeedback({
+      interviewId: interviewId!,
+      userId: userId!,
+      transcript: messages,
+      feedbackId,
+    });
 
-  useEffect(() => {
+    console.log('Feedback result:', { success, id });
+
+    if(success && id) {
+      router.push(`/interview/${interviewId}/feedback`)
+    } else {
+      console.log('Error saving feedback - success was false or no id returned');
+      router.push('/')
+    }
+  } catch (error) {
+    console.error('Error in handleGenerateFeedback:', error);
+    router.push('/');
+  }
+}
+
+    
+
     if(callStatus === CallStatus.FINISHED) {
       if(type === 'generate') {
         router.push('/')
@@ -105,11 +119,8 @@ const Agent = ({ userName, userId, type, interviewId, feedbackId, questions }: A
         handleGenerateFeedback(messages)
       }
     }
-      // if(callStatus === CallStatus.FINISHED) router.push('/');
+      
   }, [messages, callStatus, type, userId])
-
-
-
 
   const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);
@@ -145,12 +156,9 @@ const Agent = ({ userName, userId, type, interviewId, feedbackId, questions }: A
 
   const handleDisconnect = async() => {
     setCallStatus(CallStatus.FINISHED);
-
     vapi.stop();
   }
 
-  const latestMessage = messages[messages.length - 1]?.content;
-  const isCallInactiveOrFinished = callStatus === CallStatus.INACTIVE || callStatus === CallStatus.FINISHED;
 
   return (
     <>
@@ -187,13 +195,13 @@ const Agent = ({ userName, userId, type, interviewId, feedbackId, questions }: A
         <div className="transcript-border">
           <div className="transcript">
             <p
-              key={latestMessage}
+              key={lastMessage} //was latestMessage
               className={cn(
                 "transition-opacity duration-500 opacity-0",
                 "animate-fadeIn opacity-100"
               )}
             >
-              {latestMessage}
+              {lastMessage}
             </p>
           </div>
         </div>
